@@ -1,0 +1,456 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="theme-color" content="#222222">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="Calorie Tracker">
+<link rel="manifest" href="manifest.webmanifest">
+<title>Calorie Tracker</title>
+<style>
+*{box-sizing:border-box}body{margin:0;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Arial,sans-serif;background:#f5f5f5;color:#222;-webkit-tap-highlight-color:transparent}
+.app{max-width:600px;margin:auto;padding:14px 14px calc(70px + env(safe-area-inset-bottom))}
+.topbar{display:flex;align-items:flex-start;gap:12px;margin-bottom:18px}
+.topbar h1{margin:0 0 4px}.topbar .sub{margin:0}
+.menuBtn{width:46px;height:46px;padding:0;font-size:22px;background:#222;color:#fff;border-radius:14px;flex:none}
+.sideMenu{position:absolute;top:68px;left:max(calc(50% - 300px),15px);width:min(280px,calc(100vw - 30px));background:#fff;border-radius:14px;padding:8px;box-shadow:0 8px 28px rgba(0,0,0,.16);z-index:20}
+.sideMenu button{display:block;width:100%;text-align:left;background:#fff;padding:13px 12px;margin:2px 0;font-size:15px}
+.sideMenu button:hover{background:#f2f2f2}
+h1{margin:0 0 5px}.sub{color:#777;margin:0 0 16px}
+nav{display:flex;gap:8px;margin-bottom:14px}nav button{flex:1;background:#e8e8e8}nav button.active{background:#222;color:#fff}
+.card{background:#fff;border-radius:18px;padding:18px;margin-bottom:14px;box-shadow:0 2px 10px rgba(0,0,0,.06)}
+.kcal{font-size:35px;font-weight:800}.muted,.small{color:#777}.small{font-size:13px}
+.bar{height:12px;background:#e7e7e7;border-radius:20px;overflow:hidden;margin:12px 0 16px}.fill{height:100%;width:0;background:#222;transition:.25s}
+.macros{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}.macro{background:#f3f3f3;padding:12px;border-radius:12px;text-align:center}
+input,select{width:100%;padding:12px;border:1px solid #ddd;border-radius:11px;font-size:15px;margin:4px 0}
+label{display:block;margin-top:12px}
+button{border:0;border-radius:12px;padding:12px 14px;font-weight:700;cursor:pointer;min-height:44px}.primary{width:100%;background:#222;color:#fff;font-size:15px;margin-top:7px}
+.quick{display:flex;flex-wrap:wrap;gap:7px;margin-top:9px}.quick button{background:#eee}
+.food{display:flex;justify-content:space-between;gap:10px;padding:12px 0;border-bottom:1px solid #eee}.food:last-child{border-bottom:0}
+.remove{background:#eee;padding:5px 9px}.hidden{display:none}.row{display:flex;justify-content:space-between;align-items:center;gap:10px}.grid2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.meal{padding:13px 0;border-bottom:1px solid #eee}.meal:last-child{border-bottom:0}.meal button{background:#eee;margin-left:5px}
+.result{margin-top:12px;background:#f7f7f7;border-radius:12px;padding:13px;display:none}
+.notice{font-size:13px;color:#666;margin-top:9px}.danger{background:#eee}
+</style>
+</head>
+<body>
+<div class="app">
+<header class="topbar">
+<button class="menuBtn" onclick="toggleMenu()" aria-label="Menu">☰</button>
+<div>
+<h1>Calorie Tracker</h1>
+<p class="sub">Simpel bijhouden wat je eet.</p>
+</div>
+</header>
+
+<div id="menu" class="sideMenu hidden">
+<button onclick="showTab('today')">🏠 Tracker</button>
+<button onclick="showTab('meals')">🍽️ Mijn maaltijden</button>
+<button onclick="showTab('settings')">⚙️ Doelen & instellingen</button>
+<button onclick="showTab('profile')">👤 Mijn profiel</button>
+<button onclick="showTab('weight')">⚖️ Gewicht</button>
+<button onclick="showTab('history')">📅 Historiek</button>
+</div>
+
+<section id="today">
+<div class="card">
+<div class="kcal"><span id="totalCalories">0</span> <span class="muted">/ <span id="goalKcal">2900</span> kcal</span></div>
+<div class="small" id="remainingKcal">Nog 2900 kcal over</div>
+<div class="bar"><div class="fill" id="progress"></div></div>
+<div class="macros">
+<div class="macro"><b id="protein">0</b> / <span id="goalProtein">180</span> g<br><span class="muted">eiwit</span></div>
+<div class="macro"><b id="carbs">0</b> / <span id="goalCarbs">350</span> g<br><span class="muted">koolhydraten</span></div>
+<div class="macro"><b id="fat">0</b> / <span id="goalFat">90</span> g<br><span class="muted">vet</span></div>
+</div>
+</div>
+
+<div class="card">
+<h3>🤖 Wat heb je gegeten?</h3>
+<input id="aiInput" placeholder="bv. 1 banaan, 300 ml melk of mijn mealprep">
+<button class="primary" onclick="analyzeFood()">Analyseer & voeg toe</button>
+<div class="quick">
+<button onclick="quickAdd('1 banaan')">🍌 Banaan</button>
+<button onclick="quickAdd('500 g skyr')">🥣 Skyr</button>
+<button onclick="quickAdd('300 ml melk')">🥛 Melk</button>
+<button onclick="quickAdd('mijn mealprep')">🍝 Mealprep</button>
+</div>
+<div id="result" class="result"></div>
+</div>
+
+<div class="card"><h3>Vandaag</h3><div id="foodList"></div></div>
+</section>
+
+<section id="meals" class="hidden">
+<div class="card">
+<h2>🍽️ Mijn maaltijden</h2>
+<p class="small">Maak vaste maaltijden zodat je ze later met één klik kunt toevoegen.</p>
+<div id="mealList"></div>
+</div>
+
+<div class="card">
+<h3>Nieuwe maaltijd</h3>
+<input id="mealName" placeholder="Naam, bv. Ontbijtshake">
+<input id="mealKcal" type="number" placeholder="kcal">
+<div class="grid2">
+<input id="mealProtein" type="number" step=".1" placeholder="eiwit (g)">
+<input id="mealCarbs" type="number" step=".1" placeholder="koolhydraten (g)">
+</div>
+<input id="mealFat" type="number" step=".1" placeholder="vet (g)">
+<button class="primary" onclick="addMeal()">Maaltijd opslaan</button>
+<p class="notice">Voorlopig vul je de totale waarden in. Later kunnen we hier ingrediënten/recepten aan koppelen zodat de app ze automatisch berekent.</p>
+</div>
+</section>
+
+<section id="settings" class="hidden">
+<div class="card">
+<h2>🤖 Automatisch doelvoorstel</h2>
+<p class="small">Voor beginners kan de app op basis van je profiel een startdoel berekenen. Je kunt het voorstel daarna altijd aanpassen.</p>
+<button class="primary" onclick="generateGoals()">✨ Genereer mijn doelen</button>
+<label class="row" style="margin-top:12px;justify-content:flex-start">
+<input id="autoGoals" type="checkbox" style="width:auto;margin-right:8px">
+<span><b>Automatisch synchroniseren met mijn profiel</b><br><span class="small">Bij het opslaan van je profiel worden je doelen opnieuw berekend.</span></span>
+</label>
+<p id="generatedMessage" class="notice"></p>
+</div>
+
+<div class="card">
+<h3>📱 Op je iPhone zetten</h3>
+<p class="small">Deze versie is voorbereid als webapp. Zodra je hem online hebt staan, open je hem in Safari en kies je <b>Delen → Zet op beginscherm</b>.</p>
+</div>
+
+<div class="card">
+<h2>⚙️ Dagelijkse doelen</h2>
+<p class="small">Stel hier in hoeveel je <b>per dag</b> wilt eten. Deze waarden worden gebruikt op je dashboard.</p>
+
+<label><b>🔥 Calorieën</b><br><span class="small">Je dagelijkse calorie-doel</span></label>
+<input id="setKcal" type="number" min="0" placeholder="Bijv. 2900">
+<p class="small">kcal per dag</p>
+
+<label><b>🥩 Eiwitten</b><br><span class="small">Hoeveel eiwit je dagelijks wilt halen</span></label>
+<input id="setProtein" type="number" min="0" placeholder="Bijv. 180">
+<p class="small">gram per dag</p>
+
+<label><b>🍚 Koolhydraten</b><br><span class="small">Je dagelijkse koolhydraat-doel</span></label>
+<input id="setCarbs" type="number" min="0" placeholder="Bijv. 350">
+<p class="small">gram per dag</p>
+
+<label><b>🥑 Vetten</b><br><span class="small">Je dagelijkse vet-doel</span></label>
+<input id="setFat" type="number" min="0" placeholder="Bijv. 90">
+<p class="small">gram per dag</p>
+
+<button class="primary" onclick="saveGoals()">💾 Dagelijkse doelen opslaan</button>
+<p id="goalSaved" class="notice"></p>
+</div>
+
+<div class="card">
+<h3>📊 Jouw huidige doelen</h3>
+<div class="food"><span>🔥 Calorieën</span><b><span id="summaryKcal"></span> kcal/dag</b></div>
+<div class="food"><span>🥩 Eiwit</span><b><span id="summaryProtein"></span> g/dag</b></div>
+<div class="food"><span>🍚 Koolhydraten</span><b><span id="summaryCarbs"></span> g/dag</b></div>
+<div class="food"><span>🥑 Vet</span><b><span id="summaryFat"></span> g/dag</b></div>
+</div>
+</section>
+
+
+<section id="weight" class="hidden">
+<div class="card">
+<h2>⚖️ Gewicht</h2>
+<p class="small">Hou je gewicht bij en kijk naar je trend in plaats van naar één losse meting.</p>
+<div class="row">
+<div style="flex:1"><input id="weightInput" type="number" min="0" step="0.1" placeholder="Bijv. 89.0"></div>
+<div><button class="primary" style="width:auto;margin-top:4px" onclick="addWeight()">+ Meting</button></div>
+</div>
+<p id="weightMessage" class="notice"></p>
+</div>
+<div class="card">
+<h3>Laatste meting</h3>
+<div class="kcal" style="font-size:30px"><span id="latestWeight">-</span> <span class="muted">kg</span></div>
+<div class="small" id="weightTrend">Nog geen trend beschikbaar.</div>
+</div>
+<div class="card">
+<h3>Metingen</h3>
+<div id="weightList"></div>
+</div>
+</section>
+
+<section id="history" class="hidden">
+<div class="card">
+<h2>📅 Historiek</h2>
+<p class="small">Elke dag wordt lokaal op je toestel bijgehouden zodra je voeding toevoegt.</p>
+<div id="historyList"></div>
+</div>
+</section>
+
+<section id="profile" class="hidden">
+<div class="card">
+<h2>👤 Mijn profiel</h2>
+<p class="small">Deze gegevens helpen de app om je voedingsdoelen later persoonlijker te maken.</p>
+
+<label><b>Naam</b><br><span class="small">Hoe wil je in de app genoemd worden?</span></label>
+<input id="profileName" type="text" placeholder="Bijv. Koy">
+
+<label><b>⚖️ Gewicht</b><br><span class="small">Je huidige lichaamsgewicht</span></label>
+<input id="profileWeight" type="number" min="0" step="0.1" placeholder="Bijv. 89">
+<p class="small">kg</p>
+
+<label><b>📏 Lengte</b><br><span class="small">Je lichaamslengte</span></label>
+<input id="profileHeight" type="number" min="0" step="1" placeholder="Bijv. 193">
+<p class="small">cm</p>
+
+<label><b>🎂 Leeftijd</b></label>
+<input id="profileAge" type="number" min="0" step="1" placeholder="Bijv. 23">
+
+<label><b>Geslacht</b><br><span class="small">Nodig voor een nauwkeuriger calorievoorstel</span></label>
+<select id="profileSex">
+<option value="male">Man</option>
+<option value="female">Vrouw</option>
+</select>
+
+<label><b>🏋️ Trainingsdagen</b><br><span class="small">Gemiddeld aantal krachttrainingen per week</span></label>
+<input id="profileTraining" type="number" min="0" max="14" step="1" placeholder="Bijv. 4">
+<p class="small">dagen per week</p>
+
+<label><b>🎯 Doel</b><br><span class="small">Wat wil je bereiken?</span></label>
+<select id="profileGoal">
+<option value="maintain">Gewicht behouden</option>
+<option value="cut">Afvallen</option>
+<option value="bulk">Spiermassa opbouwen</option>
+</select>
+
+<button class="primary" onclick="saveProfile()">💾 Profiel opslaan</button>
+<p id="profileSaved" class="notice"></p>
+</div>
+
+<div class="card">
+<h3>Profieloverzicht</h3>
+<div class="food"><span>Naam</span><b id="summaryName">-</b></div>
+<div class="food"><span>Gewicht</span><b id="summaryWeight">-</b></div>
+<div class="food"><span>Lengte</span><b id="summaryHeight">-</b></div>
+<div class="food"><span>Leeftijd</span><b id="summaryAge">-</b></div>
+<div class="food"><span>Training</span><b id="summaryTraining">-</b></div>
+<div class="food"><span>Doel</span><b id="summaryGoal">-</b></div>
+</div>
+</section>
+</div>
+
+<script>
+const FOOD_KEY="ctFoods", MEAL_KEY="ctMeals", GOAL_KEY="ctGoals", PROFILE_KEY="ctProfile", WEIGHT_KEY="ctWeights", HISTORY_KEY="ctHistory";
+let profile=JSON.parse(localStorage.getItem(PROFILE_KEY)||'{"name":"","weight":"","height":"","age":"","sex":"male","training":"","goal":"maintain"}');
+let weights=JSON.parse(localStorage.getItem(WEIGHT_KEY)||"[]");
+let history=JSON.parse(localStorage.getItem(HISTORY_KEY)||"{}");
+let currentDate=new Date().toISOString().slice(0,10);
+let foods=JSON.parse(localStorage.getItem(FOOD_KEY)||"[]");
+let meals=JSON.parse(localStorage.getItem(MEAL_KEY)||"[]");
+let goals=JSON.parse(localStorage.getItem(GOAL_KEY)||'{"kcal":2900,"protein":180,"carbs":350,"fat":90}');
+
+const db=[
+{keys:["banaan","banana"],name:"Banaan",unit:"stuk",kcal:105,protein:1.3,carbs:27,fat:.3},
+{keys:["melk","halfvolle melk"],name:"Halfvolle melk",unit:"100 ml",kcal:47,protein:3.4,carbs:4.8,fat:1.5},
+{keys:["havermout"],name:"Havermout",unit:"100 g",kcal:370,protein:13,carbs:60,fat:7},
+{keys:["skyr"],name:"Skyr",unit:"100 g",kcal:62,protein:11,carbs:4,fat:.2},
+{keys:["whey","scoop","scoup"],name:"Whey",unit:"scoop",kcal:120,protein:24,carbs:3,fat:2},
+{keys:["ei","eieren"],name:"Ei",unit:"stuk",kcal:78,protein:6.3,carbs:.6,fat:5.3},
+{keys:["kip","kipfilet"],name:"Kipfilet",unit:"100 g",kcal:165,protein:31,carbs:0,fat:3.6},
+{keys:["pasta"],name:"Gekookte pasta",unit:"100 g",kcal:157,protein:5.8,carbs:30.9,fat:.9},
+{keys:["brood","boterham","boterhammen"],name:"Bruin brood",unit:"snee",kcal:80,protein:3.5,carbs:14,fat:1},
+{keys:["kaas"],name:"Kaas",unit:"snee",kcal:75,protein:5,carbs:.2,fat:6}
+];
+
+function toggleMenu(){
+const menu=document.getElementById("menu");
+menu.classList.toggle("hidden");
+document.querySelector(".menuBtn").textContent=menu.classList.contains("hidden")?"☰":"✕";
+}
+function showTab(tab){
+["today","meals","settings","profile","weight","history"].forEach(x=>document.getElementById(x).classList.toggle("hidden",x!==tab));
+document.getElementById("menu").classList.add("hidden");
+document.querySelector(".menuBtn").textContent="☰";
+if(tab==="meals")renderMeals();
+if(tab==="settings")loadSettings();
+if(tab==="profile")loadProfile();
+if(tab==="weight")renderWeight();
+if(tab==="history")renderHistory();
+}
+function saveFoods(){
+localStorage.setItem(FOOD_KEY,JSON.stringify(foods));
+saveTodayToHistory();
+render();
+}
+function saveTodayToHistory(){
+const totals=foods.reduce((a,f)=>({kcal:a.kcal+f.kcal,protein:a.protein+f.protein,carbs:a.carbs+f.carbs,fat:a.fat+f.fat}),{kcal:0,protein:0,carbs:0,fat:0});
+history[currentDate]={kcal:Math.round(totals.kcal),protein:Math.round(totals.protein),carbs:Math.round(totals.carbs),fat:Math.round(totals.fat)};
+localStorage.setItem(HISTORY_KEY,JSON.stringify(history));
+}
+function parseNumber(text){let m=text.match(/(\d+(?:[.,]\d+)?)/);return m?parseFloat(m[1].replace(",",".")):1}
+function findItem(text){let t=text.toLowerCase();let custom=meals.find(m=>t.includes(m.name.toLowerCase()));if(custom)return{meal:custom};if(t.includes("mealprep"))return{meal:meals.find(m=>m.name.toLowerCase().includes("mealprep"))};for(let item of db)if(item.keys.some(k=>t.includes(k)))return{item};return null}
+function analyzeFood(){
+let text=aiInput.value.trim();if(!text)return;let found=findItem(text),r=result;
+if(!found){r.style.display="block";r.innerHTML="<b>Niet herkend.</b><br><span class='small'>Probeer een product of maak het eerst als standaardmaaltijd.</span>";return}
+let f;
+if(found.meal){if(!found.meal){r.style.display="block";r.innerHTML="<b>Je hebt nog geen mealprep opgeslagen.</b>";return}f={...found.meal}}
+else{let i=found.item,n=parseNumber(text),factor=1;if(i.unit==="100 g")factor=n/100;else if(i.unit==="100 ml")factor=n/100;else factor=n;f={name:i.name,kcal:i.kcal*factor,protein:i.protein*factor,carbs:i.carbs*factor,fat:i.fat*factor}}
+r.style.display="block";r.innerHTML=`<div class="row"><div><b>${esc(f.name)}</b><br><span class="small">${Math.round(f.kcal)} kcal · ${f.protein.toFixed(1)}g eiwit · ${f.carbs.toFixed(1)}g KH · ${f.fat.toFixed(1)}g vet</span></div><button onclick='confirmAdd(${JSON.stringify(f)})'>Toevoegen</button></div>`;
+}
+function confirmAdd(f){foods.push(f);aiInput.value="";result.style.display="none";saveFoods()}
+function quickAdd(x){aiInput.value=x;analyzeFood()}
+function removeFood(i){foods.splice(i,1);saveFoods()}
+function render(){
+let t=foods.reduce((a,f)=>({kcal:a.kcal+f.kcal,protein:a.protein+f.protein,carbs:a.carbs+f.carbs,fat:a.fat+f.fat}),{kcal:0,protein:0,carbs:0,fat:0});
+totalCalories.textContent=Math.round(t.kcal);protein.textContent=Math.round(t.protein);carbs.textContent=Math.round(t.carbs);fat.textContent=Math.round(t.fat);
+goalKcal.textContent=goals.kcal;goalProtein.textContent=goals.protein;goalCarbs.textContent=goals.carbs;goalFat.textContent=goals.fat;
+const remaining=Math.max(0,goals.kcal-t.kcal);
+remainingKcal.textContent=remaining>0?`Nog ${Math.round(remaining)} kcal over`:`Je zit ${Math.round(t.kcal-goals.kcal)} kcal boven je doel`;
+progress.style.width=Math.min(100,t.kcal/goals.kcal*100)+"%";
+if(document.getElementById("summaryKcal")){summaryKcal.textContent=goals.kcal;summaryProtein.textContent=goals.protein;summaryCarbs.textContent=goals.carbs;summaryFat.textContent=goals.fat;}
+foodList.innerHTML=foods.length?foods.map((f,i)=>`<div class="food"><div><b>${esc(f.name)}</b><br><span class="small">${Math.round(f.kcal)} kcal · ${Math.round(f.protein)}g eiwit · ${Math.round(f.carbs)}g KH · ${Math.round(f.fat)}g vet</span></div><button class="remove" onclick="removeFood(${i})">×</button></div>`).join(""):"<span class='muted'>Nog niets toegevoegd.</span>";
+}
+function addMeal(){
+let name=mealName.value.trim();if(!name)return alert("Geef je maaltijd een naam.");
+let m={name,kcal:Number(mealKcal.value)||0,protein:Number(mealProtein.value)||0,carbs:Number(mealCarbs.value)||0,fat:Number(mealFat.value)||0};
+meals.push(m);localStorage.setItem(MEAL_KEY,JSON.stringify(meals));["mealName","mealKcal","mealProtein","mealCarbs","mealFat"].forEach(id=>document.getElementById(id).value="");renderMeals();
+}
+function renderMeals(){
+mealList.innerHTML=meals.length?meals.map((m,i)=>`<div class="meal"><div class="row"><div><b>${esc(m.name)}</b><br><span class="small">${Math.round(m.kcal)} kcal · ${Math.round(m.protein)}g eiwit · ${Math.round(m.carbs)}g KH · ${Math.round(m.fat)}g vet</span></div><div><button onclick="useMeal(${i})">+ Vandaag</button><button onclick="deleteMeal(${i})">×</button></div></div></div>`).join(""):"<p class='muted'>Nog geen standaardmaaltijden.</p>";
+}
+function useMeal(i){foods.push({...meals[i]});localStorage.setItem(FOOD_KEY,JSON.stringify(foods));render();showTab("today")}
+function deleteMeal(i){meals.splice(i,1);localStorage.setItem(MEAL_KEY,JSON.stringify(meals));renderMeals()}
+
+
+function addWeight(){
+const value=Number(document.getElementById("weightInput").value);
+if(!value){document.getElementById("weightMessage").textContent="Vul eerst je gewicht in.";return;}
+weights.push({date:currentDate,weight:value});
+weights.sort((a,b)=>a.date.localeCompare(b.date));
+localStorage.setItem(WEIGHT_KEY,JSON.stringify(weights));
+profile.weight=value;
+localStorage.setItem(PROFILE_KEY,JSON.stringify(profile));
+document.getElementById("weightInput").value="";
+document.getElementById("weightMessage").textContent="✓ Gewicht opgeslagen.";
+renderWeight();
+if(document.getElementById("autoGoals")?.checked) generateGoals(true);
+setTimeout(()=>{document.getElementById("weightMessage").textContent=""},2500);
+}
+function renderWeight(){
+const latest=weights[weights.length-1];
+latestWeight.textContent=latest?latest.weight.toFixed(1):"-";
+if(weights.length>=2){
+const diff=latest.weight-weights[weights.length-2].weight;
+weightTrend.textContent=(diff>0?"+":"")+diff.toFixed(1)+" kg sinds vorige meting.";
+}else weightTrend.textContent="Voeg minstens twee metingen toe om je trend te zien.";
+weightList.innerHTML=weights.length?weights.slice().reverse().map((w,i)=>`<div class="food"><span>${formatDate(w.date)}</span><b>${w.weight.toFixed(1)} kg</b></div>`).join(""):"<span class='muted'>Nog geen metingen.</span>";
+}
+function formatDate(d){return new Date(d+"T12:00:00").toLocaleDateString("nl-BE",{day:"2-digit",month:"2-digit",year:"numeric"})}
+function renderHistory(){
+const entries=Object.entries(history).sort((a,b)=>b[0].localeCompare(a[0]));
+historyList.innerHTML=entries.length?entries.map(([date,h])=>`<div class="food"><div><b>${formatDate(date)}</b><br><span class="small">${h.protein}g eiwit · ${h.carbs}g KH · ${h.fat}g vet</span></div><b>${h.kcal} kcal</b></div>`).join(""):"<span class='muted'>Nog geen dagen opgeslagen.</span>";
+}
+
+function generateGoals(fromProfile=false){
+const w=Number(profile.weight), h=Number(profile.height), age=Number(profile.age), training=Number(profile.training);
+if(!w || !h || !age || !Number.isFinite(training)){
+const msg=fromProfile?document.getElementById("profileSaved"):document.getElementById("generatedMessage");
+msg.textContent="Vul eerst gewicht, lengte, leeftijd en trainingsdagen in bij Mijn profiel.";
+return;
+}
+
+// Mifflin-St Jeor estimate + a simple activity factor.
+// This is a starting estimate for beginners, not a medical prescription.
+const sexAdj=profile.sex==="female" ? -161 : 5;
+const bmr=10*w + 6.25*h - 5*age + sexAdj;
+const activity=Math.min(1.65, 1.35 + Math.min(training,6)*0.05);
+let tdee=bmr*activity;
+let kcal=tdee;
+if(profile.goal==="cut") kcal=tdee*0.85;
+if(profile.goal==="bulk") kcal=tdee*1.10;
+kcal=Math.round(kcal/50)*50;
+
+const protein=Math.round(w*(profile.goal==="cut"?2.0:1.8));
+const fat=Math.round(w*0.9);
+const carbs=Math.max(0,Math.round((kcal-protein*4-fat*9)/4));
+
+goals={kcal,protein,carbs,fat};
+localStorage.setItem(GOAL_KEY,JSON.stringify(goals));
+render();
+loadSettings();
+
+const msg=document.getElementById("generatedMessage");
+msg.textContent=`✓ Voorstel gemaakt: ${kcal} kcal · ${protein} g eiwit · ${carbs} g koolhydraten · ${fat} g vet.`;
+}
+
+function saveGoals(){
+goals={
+kcal:Number(setKcal.value)||2900,
+protein:Number(setProtein.value)||180,
+carbs:Number(setCarbs.value)||350,
+fat:Number(setFat.value)||90
+};
+localStorage.setItem(GOAL_KEY,JSON.stringify(goals));
+localStorage.setItem("ctAutoGoals",document.getElementById("autoGoals").checked);
+render();
+goalSaved.textContent="✓ Je dagelijkse doelen zijn opgeslagen.";
+setTimeout(()=>{goalSaved.textContent=""},3000);
+}
+function loadSettings(){
+setKcal.value=goals.kcal;
+setProtein.value=goals.protein;
+setCarbs.value=goals.carbs;
+setFat.value=goals.fat;
+autoGoals.checked=localStorage.getItem("ctAutoGoals")==="true";
+}
+
+function saveProfile(){
+profile={
+name:document.getElementById("profileName").value.trim(),
+weight:document.getElementById("profileWeight").value,
+height:document.getElementById("profileHeight").value,
+age:document.getElementById("profileAge").value,
+sex:document.getElementById("profileSex").value,
+training:document.getElementById("profileTraining").value,
+goal:document.getElementById("profileGoal").value
+};
+localStorage.setItem(PROFILE_KEY,JSON.stringify(profile));
+if(profile.weight){
+const last=weights[weights.length-1];
+if(!last || last.date!==currentDate){
+weights.push({date:currentDate,weight:Number(profile.weight)});
+weights.sort((a,b)=>a.date.localeCompare(b.date));
+localStorage.setItem(WEIGHT_KEY,JSON.stringify(weights));
+}
+}
+renderProfileSummary();
+if(document.getElementById("autoGoals").checked) generateGoals(true);
+document.getElementById("profileSaved").textContent="✓ Je profiel is opgeslagen.";
+setTimeout(()=>{document.getElementById("profileSaved").textContent=""},3000);
+}
+function loadProfile(){
+profileName.value=profile.name||"";
+profileWeight.value=profile.weight||"";
+profileHeight.value=profile.height||"";
+profileAge.value=profile.age||"";
+profileSex.value=profile.sex||"male";
+profileTraining.value=profile.training||"";
+profileGoal.value=profile.goal||"maintain";
+renderProfileSummary();
+}
+function renderProfileSummary(){
+if(!document.getElementById("summaryName"))return;
+summaryName.textContent=profile.name||"-";
+summaryWeight.textContent=profile.weight?profile.weight+" kg":"-";
+summaryHeight.textContent=profile.height?profile.height+" cm":"-";
+summaryAge.textContent=profile.age?profile.age+" jaar":"-";
+summaryTraining.textContent=profile.training?profile.training+" dagen/week":"-";
+const labels={maintain:"Gewicht behouden",cut:"Afvallen",bulk:"Spiermassa opbouwen"};
+summaryGoal.textContent=labels[profile.goal]||"-";
+}
+
+function esc(s){return String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[c]))}
+aiInput.addEventListener("keydown",e=>{if(e.key==="Enter")analyzeFood()});
+render();
+</script>
+<script>
+if("serviceWorker" in navigator){window.addEventListener("load",()=>navigator.serviceWorker.register("./sw.js").catch(()=>{}))}
+</script>
+</body>
+</html>
